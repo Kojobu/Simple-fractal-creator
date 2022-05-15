@@ -1,0 +1,33 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import cupy as cp # if no nvidia gpu change this to: 'import numpy as cp' without '
+
+def exp_gpu(z,c,iterations):
+    for _ in range(iterations):
+        z = cp.exp(z)+c
+    return cp.isfinite(z)
+
+def mandel_gpu(z,c,iterations):
+    for _ in range(iterations):
+        z = cp.power(z,2)+c
+    return z<=2
+
+res = 8001 # change according to your gpu-mem
+iterations = 500 # reduce if computation time too long
+
+#create complex grid
+o, t = np.meshgrid(np.linspace(-1,2,res).astype(np.cdouble),np.linspace(-1,2,res).astype(np.cdouble)*1j)
+dat = cp.asarray(o + t, dtype=cp.cdouble)
+
+z0 = cp.zeros((res,res),dtype=complex)
+z = exp_gpu(z0,dat,iterations)
+
+z0[z] = 1
+dpi = 80
+height, width = z0.shape
+figsize = width / float(dpi), height / float(dpi)
+fig = plt.figure(figsize=figsize,frameon=False)
+ax = fig.add_axes([0, 0, 1, 1])
+ax.axis('off')
+ax.imshow(np.abs(z0.get()))
+fig.savefig('mandel.png',dpi=dpi)
