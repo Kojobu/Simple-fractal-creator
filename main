@@ -1,33 +1,40 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import cupy as cp # if no nvidia gpu change this to: 'import numpy as cp' without '
+import matplotlib.animation as animation
+import matplotlib.cm as cm
 
 def exp_gpu(z,c,iterations):
     for _ in range(iterations):
         z = cp.exp(z)+c
     return cp.isfinite(z)
 
-def mandel_gpu(z,c,iterations):
+def mandel_gpu(q,c,iterations):
+    m = c
     for _ in range(iterations):
-        z = cp.power(z,2)+c
-    return z<=2
+        m = cp.power(m,2)+c
+        q[m<=2] += 1
+    return cp.log(q)
 
-res = 8001 # change according to your gpu-mem
-iterations = 500 # reduce if computation time too long
+res = 2000 # change according to your gpu-mem
+frames = []
 
-#create complex grid
-o, t = np.meshgrid(np.linspace(-1,2,res).astype(np.cdouble),np.linspace(-1,2,res).astype(np.cdouble)*1j)
-dat = cp.asarray(o + t, dtype=cp.cdouble)
 
-z0 = cp.zeros((res,res),dtype=complex)
-z = exp_gpu(z0,dat,iterations)
-
-z0[z] = 1
-dpi = 80
-height, width = z0.shape
-figsize = width / float(dpi), height / float(dpi)
-fig = plt.figure(figsize=figsize,frameon=False)
-ax = fig.add_axes([0, 0, 1, 1])
-ax.axis('off')
-ax.imshow(np.abs(z0.get()))
-fig.savefig('mandel.png',dpi=dpi)
+num = 4 # set starting range
+for i in np.arange(1,9901):
+    iterations = 500
+    z0 = cp.zeros((res,res),dtype=complex)
+    o, t = cp.meshgrid(cp.linspace(-num,num,res).astype(cp.cdouble)+cp.exp(1)/7,cp.linspace(-num,num,res).astype(cp.cdouble)*1j+ cp.exp(1)/20j) # change offset here for poi
+    dat = o + t
+    z = mandel_gpu(z0,dat,iterations)
+    num *= 0.92
+    dpi = 80
+    height, width = z.shape
+    figsize = width / float(dpi), height / float(dpi)
+    fig = plt.figure(figsize=figsize,frameon=False)
+    ax = fig.add_axes([0, 0, 1, 1])
+    ax.axis('off')
+    ax.imshow(np.abs(z.get()))
+    fig.savefig(f'./img/file{str(i).zfill(4)}.png',dpi=dpi)
+    if i%99==0: print(i//90)
+    plt.close(fig)
